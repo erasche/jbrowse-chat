@@ -1,0 +1,63 @@
+#chatArea div.message {
+	margin: 0px;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	padding: 0px;
+	padding-top: 0.3em;
+	padding-bottom: 0.3em;
+	border: 0px;
+	background: none;
+	font-size: 110%;
+	height: 50px;
+	width: 100%;
+	display: table;
+}
+
+#chatArea div.message div.avatar {
+	width: 50px;
+	float: left;
+	display: block;
+}
+
+#chatArea div.message div.body {
+	width: 220px;
+	float: left;
+	display: block;
+	padding-left: 0.2em;
+	padding-right: 0.2em;
+	word-break: break-all;
+}
+
+#chatArea div.status.location {
+	background: #ccc;
+	cursor: pointer;
+}
+
+#chatArea div.status div.body {
+	color: #555;
+	padding: 0.5em;
+}
+
+#chatArea div.message div.body div.author {
+	font-weight: 900;
+}
+
+#chatMain #chatInput {
+	padding: 5px;
+	border: none;
+	background: #eee;
+}
+
+#chatMain #loginButton {
+	display: block;
+
+	background: #6666ff;
+	padding: 1em;
+
+	text-align: center;
+	color: black;
+}
+
+.message .status.location {
+	border-top: 1px solid gray;
+}
