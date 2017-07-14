@@ -20,7 +20,7 @@ Status | Feature
 
 ## Example configuration
 
-```json
+```ini
 [plugins.Chat]
 location = plugins/Chat
 server = http://localhost:5000
