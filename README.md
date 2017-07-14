@@ -17,6 +17,12 @@ Status | Feature
 50%    | Per-instance OR per-refseq rooms
 50%    | Link to locations
 0%     | Comments wherever there is a popup
+0%     | Fix CSS
+0%     | Security Audit
+0%     | Notifications
+0%     | Persistence
+0%     | @ing users
+0%     | Display user locations / update position regularly.
 
 ## Example configuration
 
