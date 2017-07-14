@@ -124,7 +124,7 @@ function (
                     if(data.msg.substring(0, 10) === '[location '){
                         console.log(data);
                         $("#chatArea").append(
-                            '<div class="status location">' +
+                            '<div class="status location" onclick="JBrowse.navigateTo(\'' + data.loc + '\')">' +
                                 '<div class="body">' +
                                     '<div class="author">' + data.user.name + ' shared a location ' + data.loc + '</div>' +
                                 '</div>' +
