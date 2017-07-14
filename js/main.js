@@ -93,6 +93,10 @@ function (
             on(window, 'resize', function(){
                 self.updateChatDivSize()
             })
+
+            on(dom.byId('chatArea'), 'click', function(){
+                dom.byId('chatInput').focus();
+            })
         },
 
         updateChatDivSize: function() {
