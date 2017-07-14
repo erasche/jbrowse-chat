@@ -14,7 +14,7 @@ Status | Feature
 ------ | -------
 100%   | Google Login
 100%   | Multiuser chat
-50%    | Per-instance and per-organism rooms
+50%    | Per-instance OR per-refseq rooms
 50%    | Link to locations
 0%     | Comments wherever there is a popup
 
