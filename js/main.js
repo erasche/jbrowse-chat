@@ -19,27 +19,33 @@ function (
    return declare(JBrowsePlugin, {
         constructor: function (args) {
             var browser = args.browser;
-            console.log('Chat plugin starting');
+            var self = this;
             this.config = {
                 granularity: args.granularity,
                 server: args.server,
-                currentLoc: args.browser.config.location,
                 browser: args.browser,
             }
-            this.initChatDiv();
-            this.connectChat();
-            console.log(args);
-            console.log('Chat plugin ready');
+
+            this.browser.afterMilestone('createTrack', function(){
+                console.log('Chat plugin starting');
+                self.initChatDiv();
+                self.connectChat();
+                console.log('Chat plugin ready');
+            })
         },
 
         getRoom: function() {
             var room;
             if(this.config.granularity === 'refseq') {
-                room = this.config.browser.config.location.split(':')[0];
+                room = this.getLoc().split(':')[0];
             } else {
                 room = 'instance';
             }
             return room;
+        },
+
+        getLoc: function(){
+            return this.config.browser.view.visibleRegionLocString()
         },
 
         initChatDiv: function() {
@@ -74,8 +80,8 @@ function (
                 label: "Share View",
                 onClick: function(){
                     self.socket.emit('text', {
-                        msg: '[location ' + self.config.browser.config.location + ']',
-                        loc: self.config.browser.config.location,
+                        msg: '[location ' + self.getLoc() + ']',
+                        loc: self.getLoc(),
                         room: self.getRoom(),
                     });
                 }
@@ -106,6 +112,7 @@ function (
 
         connectChat: function() {
             var self = this;
+            console.log(self);
             self.socket = null;
             // Per-refseq chat or per-instance chat?
             self.socket = io.connect(self.config.server + '/chat?room=' + self.getRoom())
@@ -172,7 +179,7 @@ function (
                     self.socket.emit('text', {
                         msg: text,
                         room: self.getRoom(),
-                        loc: self.config.browser.config.location
+                        loc: self.getLoc(),
                     });
                 }
             });
