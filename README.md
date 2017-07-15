@@ -15,16 +15,18 @@ Status | Feature
 100%   | Google Login
 100%   | Multiuser chat
 50%    | Per-instance OR per-refseq rooms
-50%    | Link to locations. > Google hangouts introduced a "where am I" icon, I could see the exact same being used to share location within the genome browser. Would be nice to have a "go back" link inserted, if the user follows another user's "where am I" link.
-0%     | Path prefix
-0%     | Ensure Cross Origin functionality
-0%     | Comments wherever there is a popup
+66%    | Link to locations, Share Tracks, "Go Back"
+100%   | Path prefix
+100%   | Ensure Cross Origin functionality
 0%     | Fix CSS
 0%     | Security Audit
-0%     | Notifications
-0%     | Persistence
-0%     | @ing users
 0%     | Display user locations / update position regularly.
+
+Wishlist?
+
+- Comments wherever there is a popup
+- Notifications
+- Persistence
 
 ## Example configuration
 

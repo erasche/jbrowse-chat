@@ -28,21 +28,28 @@ function (
             this.config = {
                 granularity: args.granularity,
                 server: args.server,
+                server_path: args.server_path,
                 browser: args.browser,
+                checkin_frequency: parseInt(args.checkin_frequency) || 5000,
             }
+            console.log(this.config);
+
+            this.userLocationMap = {};
 
             this.browser.afterMilestone('createTrack', function(){
                 console.log('Chat plugin starting');
                 self.initChatDiv();
                 self.connectChat();
                 console.log('Chat plugin ready');
-            })
+            });
+
+            window.Chat = this;
         },
 
         getRoom: function() {
             var room;
             if(this.config.granularity === 'refseq') {
-                room = this.getLoc().split(':')[0];
+                room = this.getLoc()['ref']
             } else {
                 room = 'instance';
             }
@@ -50,7 +57,16 @@ function (
         },
 
         getLoc: function(){
-            return this.config.browser.view.visibleRegionLocString()
+            d = this.config.browser.view.visibleRegion();
+            return {
+                'ref': d['ref'],
+                'start': parseInt(d['start']),
+                'end': parseInt(d['end']),
+            }
+        },
+
+        getLocStr: function(){
+            return this.formatLoc(this.getLoc());
         },
 
         initChatDiv: function() {
@@ -59,7 +75,6 @@ function (
             domStyle.set(gb, 'width', '80%');
             domStyle.set(gb, 'float', 'left');
             var body = document.getElementsByTagName('body')[0];
-            console.log(body);
             domConstruct.place(
                 '<div style="float: left;" id="chatBar">' +
                     '<div id="chatMenuBar" class="menuBar">' +
@@ -85,8 +100,9 @@ function (
                 label: "Share View",
                 onClick: function(){
                     self.socket.emit('text', {
-                        msg: '[location ' + self.getLoc() + ']',
+                        msg: '[location ' + self.getLocStr() + ']',
                         loc: self.getLoc(),
+                        tracks: JBrowse.view.tracks.map(function(d){ return d.name  }),
                         room: self.getRoom(),
                     });
                 }
@@ -108,7 +124,6 @@ function (
             chat_width = 300
             var width = window.innerWidth;
             var height = window.innerHeight;
-            console.log();
             domStyle.set(dom.byId('chatBar'), 'width', chat_width + 'px');
             domStyle.set(dom.byId('chatBar'), 'height', height + 'px');
             domStyle.set(dom.byId('GenomeBrowser'), 'width', (width - chat_width - 30) + 'px');
@@ -116,66 +131,48 @@ function (
                     - dojo.position(dom.byId('chatMenuBar')).h
                     - dojo.position(dom.byId('chatInput')).h;
             domStyle.set(dom.byId('chatArea'), 'height', chatMaxHeight + 'px');
-            console.log('max height', chatMaxHeight)
+        },
+
+        updateBookmarks: function(){
+            var new_bookmarks = [];
+            for(var key in this.userLocationMap){
+                new_bookmarks.push({
+                    color: 'rgba(190,50,50,0.1)',
+                    start: this.userLocationMap[key]['start'],
+                    end: this.userLocationMap[key]['end'],
+                    ref: this.userLocationMap[key]['ref'],
+                })
+            }
+            JBrowse.config.bookmarks = new_bookmarks;
+        },
+
+        formatLoc: function(data){
+            return data['ref'] + ':' + data['start'] + '..' + data['end'];
         },
 
         connectChat: function() {
             var self = this;
             // Per-refseq chat or per-instance chat?
-            self.socket = io.connect(self.config.server + '/chat?room=' + self.getRoom())
+            self.socket = io.connect(self.config.server + '/chat', {
+                path: self.config.server_path + '/socket.io/',
+                query: {
+                    'room': self.getRoom()
+                }
+            })
 
             self.socket.on('connect', function() {
                 self.socket.emit('joined', {
                     room: self.getRoom(),
                 });
+                self.registerPresenceUpdater();
             });
 
             self.socket.on('status', function(data) {
-                console.log(data);
-                if(data.msg) {
-                    console.log(data.msg.substring(0, 10));
-                    console.log(data.msg.substring(0, 10) === '[location ');
-                    if(data.msg.substring(0, 10) === '[location '){
-                        console.log(data);
-                        $("#chatArea").append(
-                            '<div class="status location" onclick="JBrowse.navigateTo(\'' + data.loc + '\')">' +
-                                '<div class="body">' +
-                                    '<div class="author">' + data.user.name + ' shared a location ' + data.loc + '</div>' +
-                                '</div>' +
-                            '</div>'
-                        );
-                    } else {
-                        $("#chatArea").append('<div class="status"><div class="body">' + data.msg + "</div></div>");
-                    }
-                    $('#chatArea').scrollTop($('#chatArea')[0].scrollHeight);
-                } else {
-                    if(data.err === "Unauthenticated"){
-                        $('#chatArea').append(
-                            '<a id="loginButton" href="' + self.config.server + '/login">Login with Google</a>'
-                        );
-                        //
-                    } else {
-                        console.log(data);
-                    }
-                }
+                self.handleStatus(data);
             });
 
             self.socket.on('message', function(data) {
-                console.log(data);
-                $("#chatArea").append(
-                    '<div class="message">' +
-                        '<div class="avatar">' +
-                            '<img width="50" src="' + data.user.picture + '">' +
-                        '</div>' +
-                        '<div class="body">' +
-                            '<div class="author">' + data.user.name + '</div>' +
-                            '<div class="text">' + data.msg + '</div>' +
-                        '</div>' +
-                    '</div>'
-                );
-                if($('#chatArea')){
-                    $('#chatArea').scrollTop($('#chatArea')[0].scrollHeight);
-                }
+                self.handleMessage(data);
             });
 
             $('#chatInput').keypress(function(e) {
@@ -187,6 +184,7 @@ function (
                         msg: text,
                         room: self.getRoom(),
                         loc: self.getLoc(),
+                        tracks: JBrowse.view.tracks.map(function(d){ return d.name  }),
                     });
                 }
             });
@@ -196,6 +194,91 @@ function (
                     socket.disconnect();
                 });
             });
+        },
+
+        registerPresenceUpdater: function(data){
+            var self = this;
+            // Regularly share locations. This probably doesn't scale well, currently.
+            setInterval(function(){
+                self.socket.emit('text', {
+                    msg: '[location quiet ' + self.getLocStr() + ']',
+                    room: self.getRoom(),
+                    loc: self.getLoc(),
+                    tracks: JBrowse.view.tracks.map(function(d){ return d.name  }),
+                });
+            }, this.config.checkin_frequency);
+        },
+
+        handleMessage: function(data){
+            $("#chatArea").append(
+                '<div class="message">' +
+                    '<div class="avatar">' +
+                        '<img width="50" src="' + data.user.picture + '">' +
+                    '</div>' +
+                    '<div class="body">' +
+                        '<div class="author">' + data.user.name + '</div>' +
+                        '<div class="text">' + data.msg + '</div>' +
+                    '</div>' +
+                '</div>'
+            );
+            if($('#chatArea')){
+                $('#chatArea').scrollTop($('#chatArea')[0].scrollHeight);
+            }
+        },
+
+        jumpTo: function(encodedData){
+            data = JSON.parse(decodeURIComponent(escape(atob(encodedData))))
+            console.log(data);
+            JBrowse.navigateTo(this.formatLoc(data.loc))
+            // Then flip off tracks so ours can be in the SAME order as theirs
+            for(var k in JBrowse.view.tracks){
+                this.browser.publish('/jbrowse/v1/v/tracks/hide', [JBrowse.view.tracks[k].config]);
+            }
+            // Reformat known tracks into an addressable structure
+            //
+            var trackMap = JBrowse.config.tracks.reduce(function(map, obj) {
+                map[obj.label] = obj;
+                return map;
+            }, {});
+
+            // Now, in order, we flip those tracks on.
+            for(var k in data.tracks){
+                this.browser.publish('/jbrowse/v1/v/tracks/show', [trackMap[data.tracks[k]]]);
+            }
+        },
+
+        handleStatus: function(data){
+            var self = this;
+            if(data.msg) {
+                if(data.msg.substring(0, 10) === '[location '){
+                    if(data.msg.substring(0, 16) === '[location quiet '){
+                        // Just register the updated position.
+                        self.userLocationMap[data.user.id] = data.loc
+                        self.updateBookmarks();
+                    } else {
+
+                        $("#chatArea").append(
+                            '<div class="status location" onclick="Chat.jumpTo(\'' + btoa(unescape(encodeURIComponent(JSON.stringify(data)))) + '\')">' +
+                                '<div class="body">' +
+                                    '<div class="author">' + data.user.name + ' shared a location ' + self.formatLoc(data.loc) + '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+                    }
+                } else {
+                    $("#chatArea").append('<div class="status"><div class="body">' + data.msg + "</div></div>");
+                }
+                $('#chatArea').scrollTop($('#chatArea')[0].scrollHeight);
+            } else {
+                if(data.err === "Unauthenticated"){
+                    $('#chatArea').append(
+                        '<a id="loginButton" href="' + self.config.server + '/login">Login with Google</a>'
+                    );
+                    //
+                } else {
+                    console.log(data);
+                }
+            }
         },
     });
 });
