@@ -5,7 +5,9 @@ define([
     'dojo/dom-style',
     'dojo/dom-construct',
     'dijit/form/Button',
-    'JBrowse/Plugin'
+    'JBrowse/Plugin',
+    "https://code.jquery.com/jquery-1.4.2.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.js",
 ],
 function (
     declare,
@@ -14,12 +16,15 @@ function (
     domStyle,
     domConstruct,
     Button,
-    JBrowsePlugin
+    JBrowsePlugin,
+    jquery,
+    io
 ) {
    return declare(JBrowsePlugin, {
         constructor: function (args) {
             var browser = args.browser;
             var self = this;
+
             this.config = {
                 granularity: args.granularity,
                 server: args.server,
@@ -116,8 +121,6 @@ function (
 
         connectChat: function() {
             var self = this;
-            console.log(self);
-            self.socket = null;
             // Per-refseq chat or per-instance chat?
             self.socket = io.connect(self.config.server + '/chat?room=' + self.getRoom())
 
