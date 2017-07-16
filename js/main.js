@@ -30,11 +30,12 @@ function (
                 server: args.server,
                 server_path: args.server_path,
                 browser: args.browser,
-                checkin_frequency: parseInt(args.checkin_frequency) || 5000,
+                checkin_frequency: parseInt(args.checkin_frequency) || 10000,
             }
             console.log(this.config);
 
             this.userLocationMap = {};
+            this.users = {};
 
             this.browser.afterMilestone('createTrack', function(){
                 console.log('Chat plugin starting');
@@ -89,6 +90,8 @@ function (
                             '</span>' +
                         '</span>' +
                     '</div>' +
+                    '<div id="chatIcons">' +
+                    '</div>' +
                     '<div id="chatMain">' +
                         '<div id="chatArea" style="width:100%; overflow-y: scroll"></div>' +
                         '<input id="chatInput" style="width:100%" placeholder="Enter your message here">' +
@@ -124,26 +127,61 @@ function (
             chat_width = 300
             var width = window.innerWidth;
             var height = window.innerHeight;
+            var iconsHeight = $("#chatIcons").height();
+
             domStyle.set(dom.byId('chatBar'), 'width', chat_width + 'px');
             domStyle.set(dom.byId('chatBar'), 'height', height + 'px');
             domStyle.set(dom.byId('GenomeBrowser'), 'width', (width - chat_width - 30) + 'px');
-            var chatMaxHeight = height - 10
+            var chatMaxHeight = height
                     - dojo.position(dom.byId('chatMenuBar')).h
-                    - dojo.position(dom.byId('chatInput')).h;
+                    - dojo.position(dom.byId('chatInput')).h
+                    - iconsHeight;
             domStyle.set(dom.byId('chatArea'), 'height', chatMaxHeight + 'px');
         },
 
-        updateBookmarks: function(){
-            var new_bookmarks = [];
-            for(var key in this.userLocationMap){
-                new_bookmarks.push({
-                    color: 'rgba(190,50,50,0.1)',
-                    start: this.userLocationMap[key]['start'],
-                    end: this.userLocationMap[key]['end'],
-                    ref: this.userLocationMap[key]['ref'],
-                })
+        updateUsers: function(data) {
+            // TODO: only re-render if needed.
+            // TODO: put self first
+            // TODO: figure out who self is
+            // Clear out any existing icons
+            var self = this;
+            $("#chatIcons").empty();
+            // Construct new icons
+            for(var u in data){
+                $("#chatIcons").append(
+                    '<img ' +
+                        'onclick="Chat.toggleFollowMode(\'avatar' + data[u].id + '\')" ' +
+                        'id="avatar' + data[u].id + '" ' +
+                        'alt="Avatar for ' + data[u].name + '" ' +
+                        'title="' + data[u].name + '" ' +
+                        'class="' + (self.following === ('avatar' + data[u].id) ? 'selected' : '') + '" ' +
+                        'src="' + data[u].picture + '" width="30"/>');
             }
-            JBrowse.config.bookmarks = new_bookmarks;
+            this.updateChatDivSize();
+        },
+
+        toggleFollowMode: function(target) {
+            // Set some flag
+            if(this.following && this.following === target){
+                $("#chatIcons img").removeClass("selected")
+                this.following = null;
+            } else {
+                this.following = target;
+                $("#" + target).addClass("selected")
+            }
+        },
+
+        updatePresence: function(data){
+            //var new_bookmarks = [];
+            //for(var key in this.userLocationMap){
+                //new_bookmarks.push({
+                    //color: 'rgba(190,50,50,0.1)',
+                    //start: this.userLocationMap[key]['start'],
+                    //end: this.userLocationMap[key]['end'],
+                    //ref: this.userLocationMap[key]['ref'],
+                //})
+            //}
+            //JBrowse.config.bookmarks = new_bookmarks;
         },
 
         formatLoc: function(data){
@@ -226,13 +264,51 @@ function (
             }
         },
 
-        jumpTo: function(encodedData){
-            data = JSON.parse(decodeURIComponent(escape(atob(encodedData))))
-            console.log(data);
-            JBrowse.navigateTo(this.formatLoc(data.loc))
+        jumpTo: function(encodedData, encoded){
+            if(encoded){
+                data = this.decode(encodedData);
+            } else {
+                data = encodedData;
+            }
+
+            // Navigate if the current location is not the same as the
+            // previously seen one.
+            if(this.previouslySeenLocation !== this.formatLoc(data.loc)){
+                console.log("Navigating")
+                JBrowse.navigateTo(this.formatLoc(data.loc))
+                this.previouslySeenLocation = this.formatLoc(data.loc);
+            }
+
+            // Only reload tracks IF WE NEED TO.
+            if(
+                JSON.stringify(JBrowse.view.tracks.map(function(d){ return d.name  }))
+                != JSON.stringify(data.tracks)
+            ) {
+                console.log("Reloading Tracks")
+                this.syncTracksPreservingOrder(data);
+            }
+        },
+
+        syncTracksPreservingOrder: function(data){
+            // Debuff to prevent constant reloads.
+            if(!this.lastTrackChange){
+                this.lastTrackChange = new Date().getTime() - 1000;
+            }
+            var currentTime = new Date().getTime();
+
+            // If our last update was <20s ago,...
+            if(currentTime < this.lastTrackChange + 20000) {
+                console.log("Too soon, ignoring");
+                return;
+            } else {
+                this.lastTrackChange = currentTime;
+            }
+
             // Then flip off tracks so ours can be in the SAME order as theirs
             for(var k in JBrowse.view.tracks){
-                this.browser.publish('/jbrowse/v1/v/tracks/hide', [JBrowse.view.tracks[k].config]);
+                if(JBrowse.view.tracks[k]){
+                    this.browser.publish('/jbrowse/v1/v/tracks/hide', [JBrowse.view.tracks[k].config]);
+                }
             }
             // Reformat known tracks into an addressable structure
             //
@@ -247,6 +323,14 @@ function (
             }
         },
 
+        encode: function(data){
+            return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        },
+
+        decode: function(data){
+            return JSON.parse(decodeURIComponent(escape(atob(encodedData))));
+        },
+
         handleStatus: function(data){
             var self = this;
             if(data.msg) {
@@ -254,11 +338,18 @@ function (
                     if(data.msg.substring(0, 16) === '[location quiet '){
                         // Just register the updated position.
                         self.userLocationMap[data.user.id] = data.loc
-                        self.updateBookmarks();
+                        self.updatePresence(self.userLocationMap);
+                        self.users[data.user.id] = data.user
+                        self.updateUsers(self.users);
+
+                        // Follow Mode
+                        if('avatar' + data.user.id === self.following){
+                            self.jumpTo(data);
+                        }
                     } else {
 
                         $("#chatArea").append(
-                            '<div class="status location" onclick="Chat.jumpTo(\'' + btoa(unescape(encodeURIComponent(JSON.stringify(data)))) + '\')">' +
+                            '<div class="status location" onclick="Chat.jumpTo(\'' + self.encode(data) + '\', true)">' +
                                 '<div class="body">' +
                                     '<div class="author">' + data.user.name + ' shared a location ' + self.formatLoc(data.loc) + '</div>' +
                                 '</div>' +
