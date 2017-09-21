@@ -6,7 +6,9 @@ standalone) that just handles chat/comments/communication. Personally I believe
 this is a technical improvement over other attempts at similar features which
 tried to have the chat server component also handle serving JBrowse. I have
 zero interest in doing that, I'm happy with how I'm serving my *completely
-static* genome browser.
+static* genome browser. I don't want it replaced by someone else's dynamic,
+un-optimized javascript webserver. JBrowse-on-S3 is a really wonderful reality
+and anything else is a step back.
 
 ## Demo
 
