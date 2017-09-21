@@ -4,6 +4,8 @@ Currently very WIP, but I finally had a few moments alone and could implement th
 
 ## Demo
 
+Click below to see a video of the new follow feature.
+
 [![Video of new "follow" feature](https://img.youtube.com/vi/UZXsznS6LU0/0.jpg)](https://www.youtube.com/watch?v=UZXsznS6LU0)
 
 ## Screenshot
