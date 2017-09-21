@@ -1,6 +1,12 @@
 # JBrowse Chat Plugin
 
-Currently very WIP, but I finally had a few moments alone and could implement this.
+Currently very WIP. It [requires a server
+component](https://github.com/erasche/jbrowse-chat-server) (completely
+standalone) that just handles chat/comments/communication. Personally I believe
+this is a technical improvement over other attempts at similar features which
+tried to have the chat server component also handle serving JBrowse. I have
+zero interest in doing that, I'm happy with how I'm serving my *completely
+static* genome browser.
 
 ## Demo
 
